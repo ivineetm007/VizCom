@@ -256,7 +256,7 @@ const App = () => {
         type="text"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="design anything and find in online"
+        placeholder="design anything and make it real online"
         onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
         aria-label="Design prompt"
       />
