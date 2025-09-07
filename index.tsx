@@ -2,6 +2,81 @@ import React, { useState, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI, Modality, Type } from '@google/genai';
 
+// --- UI COMPONENTS (Moved outside of App to prevent re-creation on render) ---
+
+const ImageCanvas = ({ inputImage, outputImage, isLoading, loadingMessage, triggerFileUpload }) => (
+    <div
+      className={`image-canvas ${!inputImage && !isLoading ? 'clickable' : ''}`}
+      onClick={!inputImage && !isLoading ? triggerFileUpload : undefined}
+      role={!inputImage && !isLoading ? 'button' : undefined}
+      tabIndex={!inputImage && !isLoading ? 0 : -1}
+      aria-label={!inputImage ? "Upload an image" : "Image display"}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !inputImage && !isLoading) {
+          e.preventDefault();
+          triggerFileUpload();
+        }
+      }}
+    >
+      {isLoading && (
+        <div className="loader">
+          <div className="spinner"></div>
+          <p>{loadingMessage}</p>
+        </div>
+      )}
+      {outputImage ? (
+        <img src={outputImage} alt="Generated result" />
+      ) : inputImage ? (
+        <img src={`data:${inputImage.mimeType};base64,${inputImage.base64}`} alt="User upload" />
+      ) : (
+        <div className="placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="placeholder-icon">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" x2="12" y1="3" y2="15" />
+            </svg>
+          <p>Click or tap to upload an image</p>
+        </div>
+      )}
+    </div>
+  );
+
+const PromptBar = ({ prompt, setPrompt, handleSubmit, isLoading, fileInputRef, handleImageUpload }) => (
+    <div className="prompt-bar">
+      <label htmlFor="file-upload" className="icon-button" aria-label="Upload image">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></svg>
+      </label>
+      <input ref={fileInputRef} id="file-upload" type="file" accept="image/*" onChange={handleImageUpload} />
+      <input
+        type="text"
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder="design anything and make it real online"
+        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+        aria-label="Design prompt"
+      />
+      <button className="icon-button submit-button" onClick={handleSubmit} disabled={isLoading} aria-label="Submit prompt">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" x2="19" y1="12" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+      </button>
+    </div>
+  );
+
+const Sidebar = ({ searchResults, handleProductSelect }) => (
+    <aside className={`sidebar ${searchResults.length > 0 ? 'visible' : ''}`}>
+        <h2>Search Results</h2>
+      <div className="product-grid">
+        {searchResults.map((product, index) => (
+          <div key={product.productId || index} className="product-card" onClick={() => handleProductSelect(product)} role="button" tabIndex={0}>
+            <img src={product.imageUrl} alt={product.title} />
+            <div className="title">{product.title}</div>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+
+// --- MAIN APP COMPONENT ---
+
 const App = () => {
   // --- STATE MANAGEMENT ---
   const [prompt, setPrompt] = useState('');
@@ -44,31 +119,28 @@ const App = () => {
       return { base64: placeholderBase64, mimeType: 'image/png' };
   };
 
-  // Mock Serper API call
-  const mockSerperApi = async (query: string) => {
-    console.log(`Mock Serper API called with query: "${query}"`);
-    // Return some dummy data that matches the specified contract
-    return {
-      inline_images: [
-        {
-          original: `https://placehold.co/300x400/000000/FFFFFF/png?text=Black+T-Shirt`,
-          title: 'Classic Black T-Shirt',
+  // --- LIVE API CALLS ---
+  const fetchSearchResults = async (query: string) => {
+    console.log(`Fetching live search results for: "${query}"`);
+    const response = await fetch('http://13.235.51.248/search', {
+        method: 'POST',
+        headers: {
+            'accept': 'application/json',
+            'Content-Type': 'application/json',
         },
-        {
-          original: `https://placehold.co/300x400/222222/FFFFFF/png?text=Graphic+Tee`,
-          title: 'Graphic Print T-Shirt',
-        },
-        {
-          original: `https://placehold.co/300x400/1a1a1a/FFFFFF/png?text=Polo+Shirt`,
-          title: 'Black Polo Shirt',
-        },
-        {
-            original: `https://placehold.co/300x400/333333/FFFFFF/png?text=V-Neck+Tee`,
-            title: 'V-Neck Black Tee',
-        },
-      ],
-    };
+        body: JSON.stringify({
+            q: query,
+            num: 10,
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Search API failed with status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.shopping || [];
   };
+
 
   // --- CORE LOGIC ---
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,13 +234,13 @@ const App = () => {
       // Step 2: Execute based on intent
       if (intent === 'SEARCH_AND_APPLY' && searchQuery) {
         setLoadingMessage('Searching for products...');
-        const searchData = await mockSerperApi(searchQuery);
-        setSearchResults(searchData.inline_images);
+        const products = await fetchSearchResults(searchQuery);
+        setSearchResults(products);
 
-        if (searchData.inline_images.length > 0) {
-          const firstProduct = searchData.inline_images[0];
+        if (products.length > 0) {
+          const firstProduct = products[0];
           setLoadingMessage('Applying product to image...');
-          const productB64 = await urlToBase64(firstProduct.original);
+          const productB64 = await urlToBase64(firstProduct.imageUrl);
           
           const generationPrompt = `In the user's uploaded image, replace the relevant clothing item with the provided product image (${firstProduct.title}). Ensure a realistic virtual try-on.`;
           await generateImage(inputImage, generationPrompt, productB64);
@@ -196,7 +268,7 @@ const App = () => {
     setError(null);
     try {
         setLoadingMessage('Applying selected product...');
-        const productB64 = await urlToBase64(product.original);
+        const productB64 = await urlToBase64(product.imageUrl);
         const generationPrompt = `In the user's uploaded image, replace the relevant clothing item with the provided product image (${product.title}). Ensure a realistic virtual try-on.`;
         await generateImage(inputImage, generationPrompt, productB64);
     } catch (e: any) {
@@ -208,87 +280,31 @@ const App = () => {
   }, [inputImage]);
 
 
-  // --- UI COMPONENTS ---
-  const ImageCanvas = () => (
-    <div
-      className={`image-canvas ${!inputImage && !isLoading ? 'clickable' : ''}`}
-      onClick={!inputImage && !isLoading ? triggerFileUpload : undefined}
-      role={!inputImage && !isLoading ? 'button' : undefined}
-      tabIndex={!inputImage && !isLoading ? 0 : -1}
-      aria-label={!inputImage ? "Upload an image" : "Image display"}
-      onKeyDown={(e) => {
-        if ((e.key === 'Enter' || e.key === ' ') && !inputImage && !isLoading) {
-          e.preventDefault();
-          triggerFileUpload();
-        }
-      }}
-    >
-      {isLoading && (
-        <div className="loader">
-          <div className="spinner"></div>
-          <p>{loadingMessage}</p>
-        </div>
-      )}
-      {outputImage ? (
-        <img src={outputImage} alt="Generated result" />
-      ) : inputImage ? (
-        <img src={`data:${inputImage.mimeType};base64,${inputImage.base64}`} alt="User upload" />
-      ) : (
-        <div className="placeholder">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="placeholder-icon">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" x2="12" y1="3" y2="15" />
-            </svg>
-          <p>Click or tap to upload an image</p>
-        </div>
-      )}
-    </div>
-  );
-
-  const PromptBar = () => (
-    <div className="prompt-bar">
-      <label htmlFor="file-upload" className="icon-button" aria-label="Upload image">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></svg>
-      </label>
-      <input ref={fileInputRef} id="file-upload" type="file" accept="image/*" onChange={handleImageUpload} />
-      <input
-        type="text"
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder="design anything and make it real online"
-        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-        aria-label="Design prompt"
-      />
-      <button className="icon-button submit-button" onClick={handleSubmit} disabled={isLoading} aria-label="Submit prompt">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" x2="19" y1="12" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-      </button>
-    </div>
-  );
-
-  const Sidebar = () => (
-    <aside className={`sidebar ${searchResults.length > 0 ? 'visible' : ''}`}>
-        <h2>Search Results</h2>
-      <div className="product-grid">
-        {searchResults.map((product, index) => (
-          <div key={index} className="product-card" onClick={() => handleProductSelect(product)} role="button" tabIndex={0}>
-            <img src={product.original} alt={product.title} />
-            <div className="title">{product.title}</div>
-          </div>
-        ))}
-      </div>
-    </aside>
-  );
-
   // --- RENDER ---
   return (
     <div className="app-container">
       <main className="main-content">
-        <ImageCanvas />
+        <ImageCanvas 
+            inputImage={inputImage}
+            outputImage={outputImage}
+            isLoading={isLoading}
+            loadingMessage={loadingMessage}
+            triggerFileUpload={triggerFileUpload}
+        />
         {error && <div className="error-message">{error}</div>}
-        <PromptBar />
+        <PromptBar
+            prompt={prompt}
+            setPrompt={setPrompt}
+            handleSubmit={handleSubmit}
+            isLoading={isLoading}
+            fileInputRef={fileInputRef}
+            handleImageUpload={handleImageUpload}
+        />
       </main>
-      <Sidebar />
+      <Sidebar 
+        searchResults={searchResults}
+        handleProductSelect={handleProductSelect}
+      />
     </div>
   );
 };
