@@ -166,17 +166,6 @@ const App = () => {
     setError(null);
   };
 
-  // const fileToBase64 = (file: File): Promise<{ base64: string; mimeType: string }> =>
-  //   new Promise((resolve, reject) => {
-  //     const reader = new FileReader();
-  //     reader.readAsDataURL(file);
-  //     reader.onload = () => {
-  //       const result = reader.result as string;
-  //       const base64 = result.split(',')[1];
-  //       resolve({ base64, mimeType: file.type });
-  //     };
-  //     reader.onerror = (error) => reject(error);
-  //   });
   const fileToBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -192,42 +181,11 @@ const App = () => {
       reader.readAsDataURL(file);
     });
   };
-
-  // const urlToBase64 = async (url: string): Promise<{ base64: string; mimeType: string }> => {
-  //     try {
-  //       // Using a proxy for cross-origin images, but not for the main API
-  //       // const proxyUrl = `https://cors.eu.org/${url}`;
-  //       const proxyUrl = url;
-  //       console.log(proxyUrl);
-  //       const response = await fetch(proxyUrl);
-  //       console.log(response);
-  //       if (!response.ok) {
-  //           throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-  //       }
-  //       const blob = await response.blob();
-        
-  //       return new Promise((resolve, reject) => {
-  //           const reader = new FileReader();
-  //           reader.onloadend = () => {
-  //               const result = reader.result as string;
-  //               if (!result) {
-  //                   reject(new Error("File could not be read."));
-  //                   return;
-  //               }
-  //               const base64 = result.split(',')[1];
-  //               resolve({ base64, mimeType: blob.type });
-  //           };
-  //           reader.onerror = (error) => reject(error);
-  //           reader.readAsDataURL(blob);
-  //       });
-  //     } catch (e) {
-  //       console.error("Error converting URL to Base64:", e);
-  //       throw new Error("Could not load product image. The resource might be blocked or unavailable.");
-  //     }
-  // };
+    
   const urlToBase64 = async (url: string): Promise<{ base64: string; mimeType: string }> => {
     try {
       // Try direct fetch first
+      console.log(url);
       return await fetchAsBase64(url);
     } catch (err) {
       console.warn("Direct fetch failed, retrying via CORS proxy...", err);
@@ -254,13 +212,14 @@ const App = () => {
           return;
         }
         const base64 = result.split(',')[1];
-        console.log("base64 accessed");
         resolve({ base64, mimeType: blob.type });
       };
       reader.onerror = (error) => reject(error);
       reader.readAsDataURL(blob);
     });
   }
+
+
   const loadImageFromUrl = async (url: string): Promise<{ base64: string; mimeType: string }> => {
     try {
         const response = await fetch(url);
@@ -279,7 +238,7 @@ const App = () => {
     console.log(`Fetching live search results for: "${query}" from Serper`);
     
     const myHeaders = new Headers();
-    myHeaders.append("X-API-KEY", "54d9de3164fca972d8e51c9fb5daf7a7b1fb3220");
+    myHeaders.append("X-API-KEY", "6c5ec67ca27e3abacbb41695d509c965ed17e688");
     myHeaders.append("Content-Type", "application/json");
 
     const raw = JSON.stringify({
@@ -339,12 +298,9 @@ const App = () => {
       const imageParts = [
         { inlineData: { data: userImage.base64, mimeType: userImage.mimeType } },
       ];
-      console.log("User image mime type");
-      console.log(userImage.mimeType);
+
       if (productImage) {
         imageParts.push({ inlineData: { data: productImage.base64, mimeType: productImage.mimeType } });
-        console.log("Product image mime type");
-        console.log(productImage.mimeType);
       }
 
       const response = await ai.models.generateContent({
@@ -414,7 +370,7 @@ const App = () => {
           const firstProduct = products[0];
           setLoadingMessage('Applying product to image...');
           const productB64 = await urlToBase64(firstProduct.imageUrl);
-          console.log("receieved b64")
+          
           const generationPrompt = `In the user's uploaded image, replace the relevant clothing item with the provided product image (${firstProduct.title}). Ensure a realistic virtual try-on.`;
           await generateImage(inputImage, generationPrompt, productB64);
         } else {
