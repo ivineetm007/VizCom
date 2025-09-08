@@ -10,57 +10,65 @@ const Header = ({ onReset }) => (
     </header>
 );
 
-const WelcomeScreen = ({ handleExampleSelect, setPrompt }) => {
+const WelcomeScreen = ({ handleExampleSelect }) => {
     const examplePrompts = [
-        { prompt: "a black t-shirt for these jeans", image: '/input1-zoom.png', alt: 'Man wearing a red striped t-shirt and jeans' },
-        { prompt: "a modern leather sofa", image: '/living.png', alt: 'Empty living room with white walls' },
-        { prompt: "add a minimalist coffee table" },
-        { prompt: "a floral print summer dress" }
+        { prompt: "looking for modern leather sofa to this room", image: '/living.png', alt: 'Empty living room with white walls' },
+        { prompt: "Find a black t-shirt that fits these jeans", image: '/input1-zoom.png', alt: 'Man wearing a red striped t-shirt and jeans' },
+        { prompt: "Show this room with a large area rug", image: '/living.png', alt: 'Empty living room with white walls' },
+        { prompt: "Try on a floral print summer dress", image: '/input2.png', alt: 'Person to try on a dress' }
     ];
+
+    const [selectedExample, setSelectedExample] = useState(null);
+
+    const handleUseExample = () => {
+        if (selectedExample) {
+            handleExampleSelect(selectedExample);
+        }
+    };
 
     return (
         <div className="welcome-screen">
-            <h2 className="welcome-headline">Bring Your Vision to Life.</h2>
+            <h2 className="welcome-headline">Design Your World with Real Products.</h2>
             <p className="welcome-subheading">
-                Virtually try on clothes or place new furniture in your room. Just upload a photo and tell our AI what you want to see.
+                Upload a photo, choose what you want to see, and preview it instantly—every idea linked to real items you can shop.
             </p>
             <div className="inspiration">Get started with an idea:</div>
             <div className="example-prompts-grid">
                 {examplePrompts.map(p => (
-                   p.image ? (
-                        <div key={p.prompt} className="example-card" onClick={() => handleExampleSelect(p)} role="button" tabIndex={0}>
-                            <img src={p.image} alt={p.alt} />
-                            <div className="example-card-prompt">{p.prompt}</div>
-                        </div>
-                   ) : (
-                        <div key={p.prompt} className="prompt-chip" onClick={() => setPrompt(p.prompt)}>{p.prompt}</div>
-                   )
+                    <div 
+                        key={p.prompt} 
+                        className={`prompt-chip ${selectedExample?.prompt === p.prompt ? 'selected' : ''}`}
+                        onClick={() => setSelectedExample(p)} 
+                        role="button" 
+                        tabIndex={0}
+                        aria-pressed={selectedExample?.prompt === p.prompt}
+                    >
+                        {p.prompt}
+                    </div>
                 ))}
             </div>
+
+            {selectedExample && (
+                <div className="example-preview">
+                    <img src={selectedExample.image} alt={selectedExample.alt} className="example-preview-image" />
+                    <button onClick={handleUseExample} className="use-example-button">
+                        Use this Example
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
 
-const ImageCanvas = ({ inputImage, outputImage, isLoading, loadingMessage, triggerFileUpload }) => {
-    // This component is now only rendered when there IS an image or it's loading a result.
-    // The placeholder logic from before is now effectively the WelcomeScreen.
-    if (!inputImage && !isLoading && !outputImage) {
-        return null; // Should not happen if logic in App is correct
+const ImageCanvas = ({ activeImage, isLoading, loadingMessage, triggerFileUpload }) => {
+    if (!activeImage && !isLoading) {
+        return null;
     }
 
     return (
         <div
-            className={`image-canvas ${!inputImage && !isLoading ? 'clickable' : ''}`}
-            onClick={!inputImage && !isLoading ? triggerFileUpload : undefined}
-            role={!inputImage && !isLoading ? 'button' : undefined}
-            tabIndex={!inputImage && !isLoading ? 0 : -1}
-            aria-label={!inputImage ? "Upload an image" : "Image display"}
-            onKeyDown={(e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && !inputImage && !isLoading) {
-                    e.preventDefault();
-                    triggerFileUpload();
-                }
-            }}
+            className="image-canvas"
+            aria-label="Image display"
         >
             {isLoading && (
                 <div className="loader">
@@ -68,21 +76,42 @@ const ImageCanvas = ({ inputImage, outputImage, isLoading, loadingMessage, trigg
                     <p>{loadingMessage}</p>
                 </div>
             )}
-            {outputImage ? (
-                <img src={outputImage} alt="Generated result" />
-            ) : inputImage ? (
-                <img src={`data:${inputImage.mimeType};base64,${inputImage.base64}`} alt="User upload" />
-            ) : null}
+            {activeImage && (
+                <img src={`data:${activeImage.mimeType};base64,${activeImage.base64}`} alt="Current design" />
+            )}
         </div>
     );
 };
+
+const ImageHistory = ({ history, activeIndex, onSelect }) => {
+    if (history.length <= 1) return null;
+
+    return (
+        <div className="image-history-container">
+            {history.map((image, index) => (
+                <img
+                    key={index}
+                    src={`data:${image.mimeType};base64,${image.base64}`}
+                    alt={`Version ${index + 1}`}
+                    className={`history-thumbnail ${index === activeIndex ? 'selected' : ''}`}
+                    onClick={() => onSelect(index)}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={index === activeIndex}
+                    aria-label={`Select version ${index + 1}`}
+                />
+            ))}
+        </div>
+    );
+};
+
 
 const PromptBar = ({ prompt, setPrompt, handleSubmit, isLoading, fileInputRef, handleImageUpload }) => {
     const placeholders = [
         "Find a black leather jacket for this photo...",
         "Add a minimalist coffee table to my living room...",
-        "What would I look like with a red shirt?",
-        "Show me this room with hardwood floors"
+        "Search for a red shirt...",
+        "Find a large area rug for this room..."
     ];
     const [placeholder, setPlaceholder] = useState(placeholders[0]);
 
@@ -119,8 +148,8 @@ const PromptBar = ({ prompt, setPrompt, handleSubmit, isLoading, fileInputRef, h
 };
 
 const Sidebar = ({ searchResults, handleProductSelect }) => (
-    <aside className={`sidebar ${searchResults.length > 0 ? 'visible' : ''}`}>
-        <h2>Search Results</h2>
+    <aside className="sidebar">
+        {searchResults.length > 0 && <h2>Search Results</h2>}
       <div className="product-grid">
         {searchResults.map((product, index) => (
           <div key={product.productId || index} className="product-card" onClick={() => handleProductSelect(product)} role="button" tabIndex={0}>
@@ -134,19 +163,23 @@ const Sidebar = ({ searchResults, handleProductSelect }) => (
 
 // --- MAIN APP COMPONENT ---
 
+type ImageObject = {
+  base64: string;
+  mimeType: string;
+};
+
 const App = () => {
   // --- STATE MANAGEMENT ---
   const [prompt, setPrompt] = useState('');
-  const [inputImage, setInputImage] = useState<{
-    base64: string;
-    mimeType: string;
-  } | null>(null);
-  const [outputImage, setOutputImage] = useState<string | null>(null);
+  const [imageHistory, setImageHistory] = useState<ImageObject[]>([]);
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const activeImage = activeImageIndex !== null ? imageHistory[activeImageIndex] : null;
 
   // --- API INITIALIZATION ---
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
@@ -158,15 +191,15 @@ const App = () => {
   
   const handleReset = () => {
     setPrompt('');
-    setInputImage(null);
-    setOutputImage(null);
+    setImageHistory([]);
+    setActiveImageIndex(null);
     setSearchResults([]);
     setIsLoading(false);
     setLoadingMessage('');
     setError(null);
   };
 
-  const fileToBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
+  const fileToBase64 = (file: File): Promise<ImageObject> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -174,7 +207,7 @@ const App = () => {
         const base64 = result.split(",")[1]; // Remove data URL prefix
         resolve({
           base64,
-          mimeType: file.type || "image/jpeg" // ✅ Always set MIME type
+          mimeType: file.type || "image/jpeg"
         });
       };
       reader.onerror = (error) => reject(error);
@@ -182,27 +215,22 @@ const App = () => {
     });
   };
     
-  const urlToBase64 = async (url: string): Promise<{ base64: string; mimeType: string }> => {
+  const urlToBase64 = async (url: string): Promise<ImageObject> => {
     try {
-      // Try direct fetch first
-      console.log(url);
       return await fetchAsBase64(url);
     } catch (err) {
       console.warn("Direct fetch failed, retrying via CORS proxy...", err);
-
-      // Use a CORS proxy fallback
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
       return await fetchAsBase64(proxyUrl);
     }
   };
 
-  async function fetchAsBase64(fetchUrl: string): Promise<{ base64: string; mimeType: string }> {
+  async function fetchAsBase64(fetchUrl: string): Promise<ImageObject> {
     const response = await fetch(fetchUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
     }
     const blob = await response.blob();
-
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -219,8 +247,7 @@ const App = () => {
     });
   }
 
-
-  const loadImageFromUrl = async (url: string): Promise<{ base64: string; mimeType: string }> => {
+  const loadImageFromUrl = async (url: string): Promise<ImageObject> => {
     try {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
@@ -236,23 +263,16 @@ const App = () => {
   // --- LIVE API CALLS ---
   const fetchSearchResults = async (query: string) => {
     console.log(`Fetching live search results for: "${query}" from Serper`);
-    
     const myHeaders = new Headers();
     myHeaders.append("X-API-KEY", "6c5ec67ca27e3abacbb41695d509c965ed17e688");
     myHeaders.append("Content-Type", "application/json");
-
-    const raw = JSON.stringify({
-      "q": query,
-      "num": 10
-    });
-
+    const raw = JSON.stringify({ "q": query, "num": 10 });
     const requestOptions = {
       method: "POST",
       headers: myHeaders,
       body: raw,
       redirect: "follow" as RequestRedirect
     };
-
     try {
       const response = await fetch("https://google.serper.dev/shopping", requestOptions);
       if (!response.ok) {
@@ -268,7 +288,6 @@ const App = () => {
     }
   };
 
-
   // --- CORE LOGIC ---
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -276,10 +295,11 @@ const App = () => {
       try {
         setIsLoading(true);
         setLoadingMessage("Preparing image...")
-        const { base64, mimeType } = await fileToBase64(file);
-        setInputImage({ base64, mimeType });
-        setOutputImage(null); // Clear previous output
+        const image = await fileToBase64(file);
+        setImageHistory([image]);
+        setActiveImageIndex(0);
         setError(null);
+        setSearchResults([]);
       } catch (e) {
         setError('Failed to load image. Please try again.');
         console.error(e);
@@ -290,47 +310,42 @@ const App = () => {
   };
   
   const generateImage = async (
-    userImage: { base64: string; mimeType: string },
+    userImage: ImageObject,
     promptText: string,
-    productImage?: { base64: string; mimeType: string }
+    productImage: ImageObject
   ) => {
       setLoadingMessage('Generating your new look...');
       const imageParts = [
         { inlineData: { data: userImage.base64, mimeType: userImage.mimeType } },
+        { inlineData: { data: productImage.base64, mimeType: productImage.mimeType } }
       ];
-
-      if (productImage) {
-        imageParts.push({ inlineData: { data: productImage.base64, mimeType: productImage.mimeType } });
-      }
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image-preview',
-        contents: {
-          parts: [
-            ...imageParts,
-            { text: promptText },
-          ],
-        },
-        config: {
-          responseModalities: [Modality.IMAGE, Modality.TEXT],
-        },
+        contents: { parts: [...imageParts, { text: promptText }] },
+        config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
       });
 
       for (const part of response.candidates![0].content.parts) {
         if (part.inlineData) {
-          setOutputImage(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
-          return; // Exit after finding the first image
+          const newImage: ImageObject = {
+              base64: part.inlineData.data,
+              mimeType: part.inlineData.mimeType
+          };
+          setImageHistory(currentHistory => [...currentHistory, newImage]);
+          setActiveImageIndex(imageHistory.length); // will be the index of the new image
+          return; 
         }
       }
-      throw new Error("API did not return an image.");
+      throw new Error("API did not return an image. Please try again or wait for sometime. Limitation in gemini studio to fetch images");
   }
 
   const handleSubmit = async () => {
-    if (!prompt && !inputImage) {
-      setError('Please enter a prompt or upload an image.');
+    if (!prompt) {
+      setError('Please enter a prompt to search for a product.');
       return;
     }
-    if (!inputImage) {
+    if (!activeImage) {
       setError('Please upload an image to start designing.');
       return;
     }
@@ -338,47 +353,20 @@ const App = () => {
     setIsLoading(true);
     setError(null);
     setSearchResults([]);
-    setOutputImage(null);
 
     try {
-      setLoadingMessage('Understanding your request...');
-      const intentPrompt = `Based on the user's request: "${prompt}", determine the user's intent. Respond with a JSON object with two keys: "intent" (which can be "REDESIGN_IMAGE" or "SEARCH_AND_APPLY") and "searchQuery" (a concise string for a product search, or null if not applicable). Example: for "find me a black t-shirt", respond {"intent": "SEARCH_AND_APPLY", "searchQuery": "black t-shirt"}. For "make the jeans blue", respond {"intent": "REDESIGN_IMAGE", "searchQuery": null}.`;
-      
-      const intentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: intentPrompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                intent: { type: Type.STRING },
-                searchQuery: { type: Type.STRING }
-            }
-          }
-        },
-      });
-      
-      const { intent, searchQuery } = JSON.parse(intentResponse.text);
+      setLoadingMessage('Searching for products...');
+      const products = await fetchSearchResults(prompt);
+      setSearchResults(products);
 
-      if (intent === 'SEARCH_AND_APPLY' && searchQuery) {
-        setLoadingMessage('Searching for products...');
-        const products = await fetchSearchResults(searchQuery);
-        setSearchResults(products);
-
-        if (products.length > 0) {
-          const firstProduct = products[0];
-          setLoadingMessage('Applying product to image...');
-          const productB64 = await urlToBase64(firstProduct.imageUrl);
-          
-          const generationPrompt = `In the user's uploaded image, replace the relevant clothing item with the provided product image (${firstProduct.title}). Ensure a realistic virtual try-on.`;
-          await generateImage(inputImage, generationPrompt, productB64);
-        } else {
-            setError("Could not find any products matching your search.");
-        }
+      if (products.length > 0) {
+        const firstProduct = products[0];
+        setLoadingMessage('Applying product to image...');
+        const productB64 = await urlToBase64(firstProduct.imageUrl);
+        const generationPrompt = `In the user's uploaded image, replace the relevant clothing item with the provided product image (${firstProduct.title}). Ensure a realistic virtual try-on.`;
+        await generateImage(activeImage, generationPrompt, productB64);
       } else {
-        const generationPrompt = `Based on the user's request "${prompt}", redesign the uploaded image.`;
-        await generateImage(inputImage, generationPrompt);
+          setError("Could not find any products matching your search.");
       }
     } catch (e: any) {
       setError(`An error occurred: ${e.message}`);
@@ -390,7 +378,7 @@ const App = () => {
   };
   
   const handleProductSelect = useCallback(async (product: any) => {
-    if (!inputImage) return;
+    if (!activeImage) return;
 
     setIsLoading(true);
     setError(null);
@@ -398,14 +386,14 @@ const App = () => {
         setLoadingMessage('Applying selected product...');
         const productB64 = await urlToBase64(product.imageUrl);
         const generationPrompt = `In the user's uploaded image, replace the relevant clothing item with the provided product image (${product.title}). Ensure a realistic virtual try-on.`;
-        await generateImage(inputImage, generationPrompt, productB64);
+        await generateImage(activeImage, generationPrompt, productB64);
     } catch (e: any) {
         setError(`Failed to apply product: ${e.message}`);
         console.error(e);
     } finally {
         setIsLoading(false);
     }
-  }, [inputImage]);
+  }, [activeImage, imageHistory]);
 
   const handleExampleSelect = useCallback(async (example: { prompt: string; image: string }) => {
     setPrompt(example.prompt);
@@ -413,14 +401,15 @@ const App = () => {
         setIsLoading(true);
         setLoadingMessage("Loading example...");
         setError(null);
-        setOutputImage(null);
         setSearchResults([]);
         try {
             const imageData = await loadImageFromUrl(example.image);
-            setInputImage(imageData);
+            setImageHistory([imageData]);
+            setActiveImageIndex(0);
         } catch (e: any) {
             setError(e.message);
-            setInputImage(null);
+            setImageHistory([]);
+            setActiveImageIndex(null);
         } finally {
             setIsLoading(false);
             setLoadingMessage('');
@@ -433,20 +422,25 @@ const App = () => {
   return (
     <>
       <Header onReset={handleReset} />
-      <div className="app-container">
+      <div className={`app-container ${searchResults.length > 0 ? 'sidebar-visible' : ''}`}>
         <main className="main-content">
-          {inputImage || outputImage || isLoading ? (
-              <ImageCanvas 
-                  inputImage={inputImage}
-                  outputImage={outputImage}
-                  isLoading={isLoading}
-                  loadingMessage={loadingMessage}
-                  triggerFileUpload={triggerFileUpload}
-              />
+          {activeImage || isLoading ? (
+              <>
+                <ImageCanvas 
+                    activeImage={activeImage}
+                    isLoading={isLoading}
+                    loadingMessage={loadingMessage}
+                    triggerFileUpload={triggerFileUpload}
+                />
+                <ImageHistory 
+                    history={imageHistory}
+                    activeIndex={activeImageIndex}
+                    onSelect={setActiveImageIndex}
+                />
+              </>
           ) : (
               <WelcomeScreen 
                   handleExampleSelect={handleExampleSelect}
-                  setPrompt={setPrompt} 
               />
           )}
           {error && <div className="error-message">{error}</div>}
