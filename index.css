@@ -6,6 +6,8 @@
   --card-background: #ffffff;
   --border-color: #dee2e6;
   --shadow-color: rgba(0, 0, 0, 0.1);
+  --light-gray-color: #f1f3f5;
+  --text-muted-color: #6c757d;
 }
 
 * {
@@ -18,52 +20,150 @@ body {
   font-family: 'Poppins', sans-serif;
   background-color: var(--background-color);
   color: var(--text-color);
-  display: flex;
-  flex-direction: column;
   height: 100vh;
   overflow: hidden;
 }
 
-header {
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-header {
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--border-color);
   background-color: var(--card-background);
   flex-shrink: 0;
+  cursor: pointer;
 }
 
-header h1 {
+.app-header h1 {
   font-size: 1.5rem;
   font-weight: 600;
 }
 
-#root {
-  flex-grow: 1;
-  overflow: hidden;
+.tagline {
+    font-size: 0.9rem;
+    color: var(--text-muted-color);
+    margin-top: 0.25rem;
 }
 
 .app-container {
   display: grid;
   grid-template-columns: 1fr auto;
-  height: 100%;
-  width: 100%;
+  flex-grow: 1;
   gap: 1rem;
   padding: 1rem;
+  min-height: 0;
 }
 
 .main-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end; /* Aligned to bottom to keep prompt bar visible */
+  justify-content: flex-end;
   position: relative;
   height: 100%;
 }
 
+/* --- Welcome Screen --- */
+.welcome-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 2rem;
+}
+
+.welcome-headline {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.welcome-subheading {
+    font-size: 1rem;
+    color: var(--text-muted-color);
+    margin-top: 0.5rem;
+    max-width: 450px;
+}
+
+.inspiration {
+    margin-top: 2.5rem;
+    color: var(--text-muted-color);
+    font-size: 0.9rem;
+}
+
+.example-prompts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    align-items: start;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.example-card {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    text-align: left;
+}
+
+.example-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px var(--shadow-color);
+}
+
+.example-card img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+    background-color: var(--light-gray-color);
+}
+
+.example-card-prompt {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.prompt-chip {
+    background-color: var(--light-gray-color);
+    color: var(--text-color);
+    padding: 0.5rem 1rem;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: background-color 0.2s, border-color 0.2s;
+    align-self: center;
+    text-align: center;
+}
+
+.prompt-chip:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+
 .image-canvas {
   width: 100%;
   max-width: 500px;
-  height: 70vh; /* Set height to 70% of viewport height as requested */
-  max-height: calc(100% - 8rem); /* Ensure prompt bar is visible by constraining max height */
+  height: 70vh;
+  max-height: calc(100% - 8rem);
   background-color: var(--card-background);
   border: 2px dashed var(--border-color);
   border-radius: 12px;
@@ -155,7 +255,7 @@ header h1 {
   border-radius: 30px;
   box-shadow: 0 2px 8px var(--shadow-color);
   border: 1px solid var(--border-color);
-  margin-bottom: 2rem; /* Added margin for spacing from bottom */
+  margin-bottom: 2rem;
 }
 
 .prompt-bar input[type='text'] {
@@ -278,6 +378,9 @@ input[type='file'] {
         grid-template-rows: 1fr auto;
         padding: 0.5rem;
     }
+    .welcome-headline {
+        font-size: 1.5rem;
+    }
     .sidebar {
         position: fixed;
         bottom: 0;
@@ -295,7 +398,7 @@ input[type='file'] {
     }
     .main-content {
         justify-content: space-between;
-        padding-bottom: 7rem; /* Space for prompt bar */
+        padding-bottom: 7rem;
     }
     .prompt-bar {
         position: fixed;
@@ -304,7 +407,7 @@ input[type='file'] {
         right: 0.5rem;
         width: auto;
         z-index: 101;
-        margin-bottom: 0; /* Remove margin for fixed positioning */
+        margin-bottom: 0;
     }
     .image-canvas {
         max-width: 100%;
